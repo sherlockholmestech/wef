@@ -12,6 +12,6 @@ EXPORTS
     hexdump
     vmmap
     checksec
-    wef-heap=wef_heap_entry
+    heaps
     vis
     config

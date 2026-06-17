@@ -43,9 +43,9 @@
               <Description><![CDATA[Inspect PE security properties.]]></Description>
             </AliasItem>
           </FunctionAlias>
-          <FunctionAlias Name="wef.wef-heap">
+          <FunctionAlias Name="wef.heaps">
             <AliasItem>
-              <Syntax><![CDATA[!wef.wef-heap [L<count>|heap-address] (short: !wef-heap)]]></Syntax>
+              <Syntax><![CDATA[!wef.heaps [L<count>|heap-address] (alias: wef-heap)]]></Syntax>
               <Description><![CDATA[Show Windows process heaps using PEB and ntdll heap symbols.]]></Description>
             </AliasItem>
           </FunctionAlias>

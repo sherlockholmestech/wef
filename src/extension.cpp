@@ -8,7 +8,6 @@
 
 #if defined(_MSC_VER)
 #pragma comment(linker, "/EXPORT:wef=wef_entry")
-#pragma comment(linker, "/EXPORT:wef-heap=wef_heap_entry")
 #endif
 
 WEF_EXPORT HRESULT CALLBACK DebugExtensionInitialize(PULONG Version, PULONG Flags) {
@@ -55,7 +54,7 @@ WEF_EXPORT HRESULT CALLBACK checksec(IDebugClient* client, PCSTR args) {
     return wef::commands::Checksec(client, args);
 }
 
-WEF_ALIAS_TARGET HRESULT CALLBACK wef_heap_entry(IDebugClient* client, PCSTR args) {
+WEF_EXPORT HRESULT CALLBACK heaps(IDebugClient* client, PCSTR args) {
     return wef::commands::Heaps(client, args);
 }
 

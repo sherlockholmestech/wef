@@ -30,7 +30,7 @@ HRESULT runHelp(DbgSession&, const Output& out, const std::vector<std::string>&)
     out.line("  !wef.hexdump <addr> [L<size>] [-force]");
     out.line("  !wef.vmmap");
     out.line("  !wef.checksec [module]");
-    out.line("  !wef.wef-heap [L<count>|heap-address]    (short: !wef-heap)");
+    out.line("  !wef.heaps [L<count>|heap-address]    (alias: wef-heap)");
     out.line("  !wef.vis [L<count>|heap-address]");
     out.line("  !vis [L<count>|heap-address]");
     out.line("  !wef.config get [key]");

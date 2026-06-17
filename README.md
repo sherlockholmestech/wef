@@ -92,7 +92,7 @@ Canonical commands like `!wef.ctx` always work, even without aliases.
 !wef.hexdump <addr> L<size>
 !wef.vmmap
 !wef.checksec
-!wef.wef-heap [L<count>|heap-address]    (short: !wef-heap)
+!wef.heaps [L<count>|heap-address]       (alias: wef-heap)
 !wef.vis [L<count>|heap-address]
 !vis [L<count>|heap-address]
 !wef.config get [key]
@@ -107,6 +107,7 @@ telescope
 hexdump
 vmmap
 checksec
+wef-heap
 vis
 wef-config
 ```
@@ -129,6 +130,8 @@ ctx.code.lines = 8
 ctx.regs.show_flags = true
 dereference.depth = 3
 heap.max_count = 80
+heap.vis.max_chunks = 160
+heap.vis.max_segments = 16
 telescope.count = 20
 hexdump.size = 100
 ```

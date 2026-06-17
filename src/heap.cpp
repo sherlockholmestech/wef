@@ -22,6 +22,13 @@ struct HeapSummary {
     bool gotRegion = false;
 };
 
+struct HeapChunk {
+    ULONG64 address = 0;
+    ULONG64 size = 0;
+    USHORT flags = 0;
+    USHORT previousSize = 0;
+};
+
 template <typename T>
 bool readValue(DbgSession& session, ULONG64 address, T& value) {
     ULONG bytesRead = 0;
@@ -68,6 +75,22 @@ bool readFieldUchar(DbgSession& session, ULONG64 base, PCSTR type, PCSTR field, 
     return readValue(session, base + offset, value);
 }
 
+bool readFieldUshort(DbgSession& session, ULONG64 base, PCSTR type, PCSTR field, USHORT& value) {
+    ULONG offset = 0;
+    if (!fieldOffset(session, type, field, offset)) {
+        return false;
+    }
+    return readValue(session, base + offset, value);
+}
+
+bool readFieldPointer(DbgSession& session, ULONG64 base, PCSTR type, PCSTR field, ULONG64& value) {
+    ULONG offset = 0;
+    if (!fieldOffset(session, type, field, offset)) {
+        return false;
+    }
+    return session.readPointer(base + offset, value);
+}
+
 bool readPebHeapList(DbgSession& session, ULONG64& heapsAddress, ULONG& heapCount) {
     ULONG64 peb = 0;
     if (!session.evaluate("@$peb", peb) || peb == 0) {
@@ -87,6 +110,28 @@ bool readPebHeapList(DbgSession& session, ULONG64& heapsAddress, ULONG& heapCoun
     return session.readPointer(peb + heapsOffset, heapsAddress);
 }
 
+std::string chunkFlags(USHORT flags) {
+    std::string text;
+    if ((flags & 0x01) != 0) {
+        text += "busy";
+    } else {
+        text += "free";
+    }
+    if ((flags & 0x02) != 0) {
+        text += "|extra";
+    }
+    if ((flags & 0x04) != 0) {
+        text += "|fill";
+    }
+    if ((flags & 0x08) != 0) {
+        text += "|virtual";
+    }
+    if ((flags & 0x10) != 0) {
+        text += "|last";
+    }
+    return text;
+}
+
 std::string heapKind(UCHAR frontEndType) {
     switch (frontEndType) {
     case 0:
@@ -98,6 +143,70 @@ std::string heapKind(UCHAR frontEndType) {
     default:
         return "type-" + formatHex(frontEndType);
     }
+}
+
+std::vector<HeapChunk> collectHeapChunks(DbgSession& session, const Output& out, ULONG64 heapAddress, ULONG64 maxSegments, ULONG64 maxChunks) {
+    std::vector<HeapChunk> chunks;
+    ULONG segmentListOffset = 0;
+    ULONG segmentEntryOffset = 0;
+    if (!fieldOffset(session, "ntdll!_HEAP", "SegmentList", segmentListOffset) ||
+        !fieldOffset(session, "ntdll!_HEAP_SEGMENT", "SegmentListEntry", segmentEntryOffset)) {
+        out.warning("heap chunk visualization needs ntdll _HEAP and _HEAP_SEGMENT symbols\n");
+        return chunks;
+    }
+
+    const ULONG64 listHead = heapAddress + segmentListOffset;
+    ULONG64 currentLink = 0;
+    if (!session.readPointer(listHead, currentLink)) {
+        out.warning("could not read heap SegmentList\n");
+        return chunks;
+    }
+
+    const ULONG64 entryUnit = session.pointerSize() == 8 ? 16 : 8;
+    ULONG64 segmentCount = 0;
+    while (currentLink != 0 && currentLink != listHead && segmentCount < maxSegments) {
+        const ULONG64 segment = currentLink - segmentEntryOffset;
+        ULONG64 nextLink = 0;
+        if (!session.readPointer(currentLink, nextLink)) {
+            out.warning("stopped segment walk after unreadable LIST_ENTRY\n");
+            break;
+        }
+
+        ULONG64 firstEntry = 0;
+        ULONG64 lastValidEntry = 0;
+        if (!readFieldPointer(session, segment, "ntdll!_HEAP_SEGMENT", "FirstEntry", firstEntry) ||
+            !readFieldPointer(session, segment, "ntdll!_HEAP_SEGMENT", "LastValidEntry", lastValidEntry)) {
+            currentLink = nextLink;
+            ++segmentCount;
+            continue;
+        }
+
+        ULONG64 entry = firstEntry;
+        ULONG64 chunkCount = 0;
+        while (entry != 0 && entry < lastValidEntry && chunks.size() < maxChunks && chunkCount < maxChunks) {
+            USHORT sizeUnits = 0;
+            USHORT flags = 0;
+            USHORT previousSize = 0;
+            if (!readFieldUshort(session, entry, "ntdll!_HEAP_ENTRY", "Size", sizeUnits) ||
+                !readFieldUshort(session, entry, "ntdll!_HEAP_ENTRY", "PreviousSize", previousSize)) {
+                break;
+            }
+            readFieldUshort(session, entry, "ntdll!_HEAP_ENTRY", "Flags", flags);
+            if (sizeUnits == 0) {
+                break;
+            }
+
+            const ULONG64 chunkSize = sizeUnits * entryUnit;
+            chunks.push_back({entry, chunkSize, flags, previousSize});
+            entry += chunkSize;
+            ++chunkCount;
+        }
+
+        currentLink = nextLink;
+        ++segmentCount;
+    }
+
+    return chunks;
 }
 
 HeapSummary inspectHeap(DbgSession& session, ULONG index, ULONG64 heapAddress) {
@@ -162,7 +271,7 @@ std::vector<HeapSummary> collectHeaps(DbgSession& session, const Output& out, UL
     }
 
     if (heapCount > limit) {
-        out.warning("heap output truncated; use !wef.wef-heap L<count> to show more\n");
+        out.warning("heap output truncated; use !wef.heaps L<count> to show more\n");
     }
     return heaps;
 }
@@ -178,10 +287,10 @@ bool parseHeapArgs(DbgSession& session, const Output& out, const std::vector<std
         }
         if (singleHeap != 0 || (!session.evaluate(arg, parsed) && !parseNumber(arg, parsed))) {
             out.line("usage:");
-            out.line("  !wef.wef-heap");
-            out.line("  !wef.wef-heap L<count>");
-            out.line("  !wef.wef-heap <heap-address>");
-            out.line("  short form: !wef-heap [L<count>|heap-address]");
+            out.line("  !wef.heaps");
+            out.line("  !wef.heaps L<count>");
+            out.line("  !wef.heaps <heap-address>");
+            out.line("  alias after !wef.install: wef-heap [L<count>|heap-address]");
             out.line("  !vis [L<count>|heap-address]");
             return false;
         }
@@ -192,10 +301,10 @@ bool parseHeapArgs(DbgSession& session, const Output& out, const std::vector<std
 
 void usage(const Output& out) {
     out.line("usage:");
-    out.line("  !wef.wef-heap");
-    out.line("  !wef.wef-heap L<count>");
-    out.line("  !wef.wef-heap <heap-address>");
-    out.line("  short form: !wef-heap [L<count>|heap-address]");
+    out.line("  !wef.heaps");
+    out.line("  !wef.heaps L<count>");
+    out.line("  !wef.heaps <heap-address>");
+    out.line("  alias after !wef.install: wef-heap [L<count>|heap-address]");
 }
 
 }
@@ -248,26 +357,34 @@ HRESULT runHeapVis(DbgSession& session, const Output& out, const std::vector<std
     }
 
     for (const auto& heap : heaps) {
-        out.line("  [" + formatHex(heap.index, 2) + "] " + formatAddress(heap.address));
-        const std::string frontend = heap.gotFrontEnd ? heapKind(heap.frontEndType) : "unavailable";
-        const std::string flags = heap.gotFlags ? "0x" + formatHex(heap.flags, 8) : "unavailable";
-        const std::string forceFlags = heap.gotForceFlags ? "0x" + formatHex(heap.forceFlags, 8) : "unavailable";
-        out.line("      frontend : " + frontend);
-        out.line("      flags    : " + flags);
-        out.line("      force    : " + forceFlags);
-        if (!heap.gotRegion) {
-            out.line("      region   : unavailable");
-            out.blank();
-            continue;
+        out.line("  Heap [" + formatHex(heap.index, 2) + "] " + formatAddress(heap.address));
+        out.line("  #    chunk              size        prev        flags");
+        out.line("  --   -----------------  ----------  ----------  ------------------------------");
+
+        const auto chunks = collectHeapChunks(
+            session,
+            out,
+            heap.address,
+            configGetNumber("heap.vis.max_segments", 16),
+            configGetNumber("heap.vis.max_chunks", 160));
+        for (ULONG i = 0; i < chunks.size(); ++i) {
+            const auto& chunk = chunks[i];
+            std::string line = "  ";
+            line += formatHex(i, 2);
+            line += "   ";
+            line += formatAddress(chunk.address);
+            line += "  0x";
+            line += formatHex(chunk.size, 8);
+            line += "  0x";
+            line += formatHex(static_cast<ULONG64>(chunk.previousSize), 8);
+            line += "  ";
+            line += chunkFlags(chunk.flags);
+            out.line(line);
         }
 
-        const ULONG64 base = heap.region.BaseAddress;
-        const ULONG64 end = base + heap.region.RegionSize;
-        out.line("      region   : " + formatAddress(base) + " - " + formatAddress(end) +
-                 " (0x" + formatHex(heap.region.RegionSize) + ")");
-        out.line("      memory   : [" + stateToString(heap.region.State) + "] [" +
-                 protectionToString(heap.region.Protect) + "] [" + typeToString(heap.region.Type) + "]");
-        out.line("      layout   : | HEAP HEADER | SEGMENTS / LFH / BACKEND ALLOCATIONS |");
+        if (chunks.empty()) {
+            out.warning("no chunks found for heap " + formatAddress(heap.address) + "; LFH or symbols may hide backend chunks\n");
+        }
         out.blank();
     }
     return S_OK;

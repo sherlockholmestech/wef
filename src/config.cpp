@@ -14,6 +14,8 @@ std::map<std::string, std::string>& store() {
         {"ctx.regs.show_flags", "true"},
         {"dereference.depth", "3"},
         {"heap.max_count", "80"},
+        {"heap.vis.max_chunks", "160"},
+        {"heap.vis.max_segments", "16"},
         {"output.use_dml", "true"},
         {"telescope.count", "20"},
         {"hexdump.size", "100"},
