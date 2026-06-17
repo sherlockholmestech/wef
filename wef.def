@@ -1,0 +1,17 @@
+LIBRARY wef
+
+EXPORTS
+    DebugExtensionInitialize
+    DebugExtensionUninitialize
+    wef=wef_entry
+    install
+    uninstall
+    aliases
+    ctx
+    telescope
+    hexdump
+    vmmap
+    checksec
+    wef-heap=wef_heap_entry
+    vis
+    config

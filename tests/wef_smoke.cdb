@@ -1,0 +1,11 @@
+.load wef.dll
+g
+!wef
+!wef.install
+ctx
+telescope @rsp L8
+hexdump @rsp L80
+!wef.aliases
+!wef.uninstall
+!wef.ctx
+q

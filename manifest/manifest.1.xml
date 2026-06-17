@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ExtensionPackages Version="1.0.0.0" Compression="none">
+  <ExtensionPackage>
+    <Name>WEF</Name>
+    <Version>0.1.0.0</Version>
+    <Description>Native DbgEng WinDbg extension with GEF-like context, telescope, hexdump, vmmap, and checksec commands.</Description>
+    <Components>
+      <ExtensionComponent Name="wef" Type="Engine" File="wef.dll" FilePathKind="RepositoryRelative">
+        <FunctionAliases>
+          <FunctionAlias Name="wef">
+            <AliasItem>
+              <Syntax><![CDATA[!wef]]></Syntax>
+              <Description><![CDATA[Show WEF command help.]]></Description>
+            </AliasItem>
+          </FunctionAlias>
+          <FunctionAlias Name="wef.ctx">
+            <AliasItem>
+              <Syntax><![CDATA[!wef.ctx [-full] [-regs] [-stack L<count>] [-code L<count>]]]></Syntax>
+              <Description><![CDATA[Show registers, code, and stack context.]]></Description>
+            </AliasItem>
+          </FunctionAlias>
+          <FunctionAlias Name="wef.telescope">
+            <AliasItem>
+              <Syntax><![CDATA[!wef.telescope [addr] L<count>]]></Syntax>
+              <Description><![CDATA[Read pointer-sized values and annotate them.]]></Description>
+            </AliasItem>
+          </FunctionAlias>
+          <FunctionAlias Name="wef.hexdump">
+            <AliasItem>
+              <Syntax><![CDATA[!wef.hexdump <addr> L<size>]]></Syntax>
+              <Description><![CDATA[Display bytes, hex, and printable ASCII.]]></Description>
+            </AliasItem>
+          </FunctionAlias>
+          <FunctionAlias Name="wef.vmmap">
+            <AliasItem>
+              <Syntax><![CDATA[!wef.vmmap]]></Syntax>
+              <Description><![CDATA[Show user-mode virtual memory regions.]]></Description>
+            </AliasItem>
+          </FunctionAlias>
+          <FunctionAlias Name="wef.checksec">
+            <AliasItem>
+              <Syntax><![CDATA[!wef.checksec [module]]]></Syntax>
+              <Description><![CDATA[Inspect PE security properties.]]></Description>
+            </AliasItem>
+          </FunctionAlias>
+          <FunctionAlias Name="wef.wef-heap">
+            <AliasItem>
+              <Syntax><![CDATA[!wef.wef-heap [L<count>|heap-address] (short: !wef-heap)]]></Syntax>
+              <Description><![CDATA[Show Windows process heaps using PEB and ntdll heap symbols.]]></Description>
+            </AliasItem>
+          </FunctionAlias>
+          <FunctionAlias Name="vis">
+            <AliasItem>
+              <Syntax><![CDATA[!vis [L<count>|heap-address]]]></Syntax>
+              <Description><![CDATA[Visualize Windows process heaps.]]></Description>
+            </AliasItem>
+          </FunctionAlias>
+          <FunctionAlias Name="wef.vis">
+            <AliasItem>
+              <Syntax><![CDATA[!wef.vis [L<count>|heap-address]]]></Syntax>
+              <Description><![CDATA[Visualize Windows process heaps.]]></Description>
+            </AliasItem>
+          </FunctionAlias>
+        </FunctionAliases>
+      </ExtensionComponent>
+    </Components>
+  </ExtensionPackage>
+</ExtensionPackages>

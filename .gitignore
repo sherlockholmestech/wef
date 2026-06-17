@@ -1,0 +1,35 @@
+# Build outputs
+build/
+out/
+x64/
+x86/
+Debug/
+Release/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.VC.db
+*.VC.VC.opendb
+ipch/
+
+# MSBuild artifacts
+*.obj
+*.pdb
+*.ilk
+*.idb
+*.exp
+*.lib
+*.dll
+*.exe
+*.log
+*.tlog
+
+# Editor and OS noise
+.vscode/
+.idea/
+*.swp
+*~
+Thumbs.db
+Desktop.ini

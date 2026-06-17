@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Settings Version="1">
+  <Namespace Name="Extensions">
+    <Setting Name="ExtensionRepository" Type="VT_BSTR" Value="Implicit"></Setting>
+    <Namespace Name="ExtensionRepositories">
+      <Namespace Name="WEF">
+        <Setting Name="Id" Type="VT_BSTR" Value="D1E1B73D-F61D-4D91-9E4D-6F36C63A0131"></Setting>
+        <Setting Name="LocalCacheRootFolder" Type="VT_BSTR" Value="%LOCALAPPDATA%\Dbg\UserExtensions\WEF"></Setting>
+        <Setting Name="IsEnabled" Type="VT_BOOL" Value="true"></Setting>
+      </Namespace>
+    </Namespace>
+  </Namespace>
+</Settings>
