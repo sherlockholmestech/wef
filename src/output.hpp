@@ -30,5 +30,6 @@ private:
 bool outputUseDml();
 void setOutputUseDml(bool enabled);
 std::string dmlEscape(std::string_view text);
+std::string dmlCommandLink(std::string_view label, std::string_view command);
 
 }

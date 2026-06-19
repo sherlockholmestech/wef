@@ -119,4 +119,8 @@ std::string dmlEscape(std::string_view text) {
     return escaped;
 }
 
+std::string dmlCommandLink(std::string_view label, std::string_view command) {
+    return "<link cmd=\"" + dmlEscape(command) + "\">[" + dmlEscape(label) + "]</link>";
+}
+
 }

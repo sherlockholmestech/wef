@@ -3,6 +3,8 @@
 #include <windows.h>
 #include <dbgeng.h>
 
+#include <string>
+
 #define WEF_EXPORT extern "C" __declspec(dllexport)
 #define WEF_ALIAS_TARGET extern "C"
 
@@ -46,6 +48,10 @@ WEF_EXPORT HRESULT CALLBACK hexdump(IDebugClient* client, PCSTR args) {
     return wef::commands::Hexdump(client, args);
 }
 
+WEF_EXPORT HRESULT CALLBACK search_pattern(IDebugClient* client, PCSTR args) {
+    return wef::commands::SearchPattern(client, args);
+}
+
 WEF_EXPORT HRESULT CALLBACK vmmap(IDebugClient* client, PCSTR args) {
     return wef::commands::Vmmap(client, args);
 }
@@ -54,12 +60,25 @@ WEF_EXPORT HRESULT CALLBACK checksec(IDebugClient* client, PCSTR args) {
     return wef::commands::Checksec(client, args);
 }
 
+WEF_EXPORT HRESULT CALLBACK pattern(IDebugClient* client, PCSTR args) {
+    return wef::commands::Pattern(client, args);
+}
+
 WEF_EXPORT HRESULT CALLBACK heaps(IDebugClient* client, PCSTR args) {
     return wef::commands::Heaps(client, args);
 }
 
+WEF_EXPORT HRESULT CALLBACK chunk(IDebugClient* client, PCSTR args) {
+    const std::string fullArgs = std::string("chunk ") + (args != nullptr ? args : "");
+    return wef::commands::Heaps(client, fullArgs.c_str());
+}
+
 WEF_EXPORT HRESULT CALLBACK vis(IDebugClient* client, PCSTR args) {
     return wef::commands::Vis(client, args);
+}
+
+WEF_EXPORT HRESULT CALLBACK ttd(IDebugClient* client, PCSTR args) {
+    return wef::commands::Ttd(client, args);
 }
 
 WEF_EXPORT HRESULT CALLBACK config(IDebugClient* client, PCSTR args) {

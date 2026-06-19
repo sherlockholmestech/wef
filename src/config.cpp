@@ -14,10 +14,18 @@ std::map<std::string, std::string>& store() {
         {"ctx.regs.show_flags", "true"},
         {"dereference.depth", "3"},
         {"heap.max_count", "80"},
+        {"heap.chunk.max_search_chunks", "4096"},
+        {"heap.find.max_chunk_read", "65536"},
+        {"heap.find.max_hits", "80"},
         {"heap.vis.max_chunks", "160"},
+        {"heap.vis.detail_count", "8"},
         {"heap.vis.max_segments", "16"},
+        {"heap.vis.width", "80"},
         {"output.use_dml", "true"},
+        {"pattern.max_length", "8192"},
+        {"search.max_hits", "80"},
         {"telescope.count", "20"},
+        {"ttd.max_events", "200"},
         {"hexdump.size", "100"},
     };
     return values;

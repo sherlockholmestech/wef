@@ -10,8 +10,12 @@ EXPORTS
     ctx
     telescope
     hexdump
+    search_pattern
     vmmap
     checksec
+    pattern
     heaps
+    chunk
     vis
+    ttd
     config

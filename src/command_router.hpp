@@ -28,10 +28,13 @@ HRESULT Aliases(IDebugClient* client, PCSTR args);
 HRESULT Ctx(IDebugClient* client, PCSTR args);
 HRESULT Telescope(IDebugClient* client, PCSTR args);
 HRESULT Hexdump(IDebugClient* client, PCSTR args);
+HRESULT SearchPattern(IDebugClient* client, PCSTR args);
 HRESULT Vmmap(IDebugClient* client, PCSTR args);
 HRESULT Checksec(IDebugClient* client, PCSTR args);
+HRESULT Pattern(IDebugClient* client, PCSTR args);
 HRESULT Heaps(IDebugClient* client, PCSTR args);
 HRESULT Vis(IDebugClient* client, PCSTR args);
+HRESULT Ttd(IDebugClient* client, PCSTR args);
 HRESULT Config(IDebugClient* client, PCSTR args);
 
 }

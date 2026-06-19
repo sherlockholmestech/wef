@@ -5,7 +5,9 @@
 #include <algorithm>
 #include <cctype>
 #include <iomanip>
+#include <limits>
 #include <sstream>
+#include <string_view>
 #include <vector>
 
 namespace wef {
@@ -28,6 +30,10 @@ void hexdumpUsage(const Output& out) {
     out.line("usage: !wef.hexdump <addr> [L<size>] [-force]");
 }
 
+void searchUsage(const Output& out) {
+    out.line("usage: !wef.search_pattern <text|addr|hex:414243> [start] [L<size>] [-max <count>] [-x|-w|-rwx] [-image|-mapped|-private]");
+}
+
 std::string byteToHex(unsigned char value) {
     std::ostringstream stream;
     stream << std::hex << std::nouppercase << std::setfill('0') << std::setw(2) << static_cast<unsigned>(value);
@@ -40,6 +46,126 @@ std::string padRight(std::string text, size_t width) {
     }
     text.append(width - text.size(), ' ');
     return text;
+}
+
+std::string dmlColor(std::string_view text, std::string_view color) {
+    return "<col fg=\"" + std::string(color) + "\">" + dmlEscape(text) + "</col>";
+}
+
+bool isHexDigit(char ch) {
+    return std::isxdigit(static_cast<unsigned char>(ch)) != 0;
+}
+
+bool hexValue(char ch, unsigned char& value) {
+    if (ch >= '0' && ch <= '9') {
+        value = static_cast<unsigned char>(ch - '0');
+        return true;
+    }
+    if (ch >= 'a' && ch <= 'f') {
+        value = static_cast<unsigned char>(ch - 'a' + 10);
+        return true;
+    }
+    if (ch >= 'A' && ch <= 'F') {
+        value = static_cast<unsigned char>(ch - 'A' + 10);
+        return true;
+    }
+    return false;
+}
+
+bool parseHexBytes(std::string_view text, std::vector<unsigned char>& bytes) {
+    std::string cleaned;
+    cleaned.reserve(text.size());
+    for (char ch : text) {
+        if (ch == '`' || ch == '_' || ch == ' ') {
+            continue;
+        }
+        if (!isHexDigit(ch)) {
+            return false;
+        }
+        cleaned.push_back(ch);
+    }
+    if (cleaned.empty() || (cleaned.size() % 2) != 0) {
+        return false;
+    }
+
+    bytes.clear();
+    bytes.reserve(cleaned.size() / 2);
+    for (size_t i = 0; i + 1 < cleaned.size(); i += 2) {
+        unsigned char hi = 0;
+        unsigned char lo = 0;
+        if (!hexValue(cleaned[i], hi) || !hexValue(cleaned[i + 1], lo)) {
+            return false;
+        }
+        bytes.push_back(static_cast<unsigned char>((hi << 4) | lo));
+    }
+    return true;
+}
+
+std::vector<unsigned char> numberBytes(ULONG64 value, ULONG width) {
+    std::vector<unsigned char> bytes(width, 0);
+    for (ULONG i = 0; i < width; ++i) {
+        bytes[i] = static_cast<unsigned char>((value >> (i * 8)) & 0xff);
+    }
+    return bytes;
+}
+
+bool parseSearchPattern(DbgSession& session, const std::string& token, std::vector<unsigned char>& bytes) {
+    if (token.starts_with("hex:")) {
+        return parseHexBytes(std::string_view(token).substr(4), bytes);
+    }
+    if (token.starts_with("str:")) {
+        bytes.assign(token.begin() + 4, token.end());
+        return !bytes.empty();
+    }
+
+    ULONG64 value = 0;
+    const bool numericLooking =
+        token.starts_with("0x") ||
+        token.starts_with("0X") ||
+        token.starts_with("@") ||
+        token.find('`') != std::string::npos;
+    if (numericLooking && evalAddress(session, token, value)) {
+        bytes = numberBytes(value, session.pointerSize());
+        return true;
+    }
+
+    bytes.assign(token.begin(), token.end());
+    return !bytes.empty();
+}
+
+std::string bytesToHex(const std::vector<unsigned char>& bytes) {
+    std::string result;
+    for (unsigned char byte : bytes) {
+        if (!result.empty()) {
+            result += ' ';
+        }
+        result += byteToHex(byte);
+    }
+    return result;
+}
+
+bool isReadableProtect(ULONG protect) {
+    const ULONG base = protect & 0xff;
+    return base == PAGE_READONLY ||
+        base == PAGE_READWRITE ||
+        base == PAGE_WRITECOPY ||
+        base == PAGE_EXECUTE_READ ||
+        base == PAGE_EXECUTE_READWRITE ||
+        base == PAGE_EXECUTE_WRITECOPY;
+}
+
+bool hasWriteProtect(ULONG protect) {
+    const ULONG base = protect & 0xff;
+    return base == PAGE_READWRITE || base == PAGE_WRITECOPY || base == PAGE_EXECUTE_READWRITE || base == PAGE_EXECUTE_WRITECOPY;
+}
+
+bool hasExecuteProtect(ULONG protect) {
+    const ULONG base = protect & 0xff;
+    return base == PAGE_EXECUTE || base == PAGE_EXECUTE_READ || base == PAGE_EXECUTE_READWRITE || base == PAGE_EXECUTE_WRITECOPY;
+}
+
+bool hasGuardOrNoAccess(ULONG protect) {
+    return (protect & PAGE_GUARD) != 0 || (protect & 0xff) == PAGE_NOACCESS;
 }
 
 }
@@ -296,6 +422,176 @@ HRESULT runHexdump(DbgSession& session, const Output& out, const std::vector<std
         out.dmlLine(
             plain,
             dml);
+    }
+    return S_OK;
+}
+
+HRESULT runSearchPattern(DbgSession& session, const Output& out, const std::vector<std::string>& args) {
+    if (args.empty()) {
+        searchUsage(out);
+        return S_OK;
+    }
+
+    const TargetInfo target = session.targetInfo();
+    if (!target.userMode) {
+        out.error("search-pattern requires a user-mode target\n");
+        return S_OK;
+    }
+
+    std::vector<unsigned char> pattern;
+    if (!parseSearchPattern(session, args[0], pattern)) {
+        out.error("could not parse search pattern\n");
+        return S_OK;
+    }
+
+    ULONG64 start = 0;
+    ULONG64 size = session.pointerSize() == 8 ? 0x0000800000000000ULL : 0xffffffffULL;
+    ULONG64 maxHits = configGetNumber("search.max_hits", 80);
+    bool gotStart = false;
+    bool wantExecute = false;
+    bool wantWrite = false;
+    bool onlyImage = false;
+    bool onlyMapped = false;
+    bool onlyPrivate = false;
+
+    for (size_t i = 1; i < args.size(); ++i) {
+        if (args[i] == "-x") {
+            wantExecute = true;
+            continue;
+        }
+        if (args[i] == "-w") {
+            wantWrite = true;
+            continue;
+        }
+        if (args[i] == "-rwx") {
+            wantExecute = true;
+            wantWrite = true;
+            continue;
+        }
+        if (args[i] == "-image") {
+            onlyImage = true;
+            continue;
+        }
+        if (args[i] == "-mapped") {
+            onlyMapped = true;
+            continue;
+        }
+        if (args[i] == "-private") {
+            onlyPrivate = true;
+            continue;
+        }
+        if (args[i] == "-max" && i + 1 < args.size()) {
+            ULONG64 parsed = 0;
+            if (!parseNumber(args[i + 1], parsed)) {
+                searchUsage(out);
+                return S_OK;
+            }
+            maxHits = parsed;
+            ++i;
+            continue;
+        }
+
+        ULONG64 parsed = 0;
+        if (parseLengthToken(args[i], parsed)) {
+            size = parsed;
+            continue;
+        }
+        if (!gotStart && evalAddress(session, args[i], parsed)) {
+            start = parsed;
+            gotStart = true;
+            continue;
+        }
+        searchUsage(out);
+        return S_OK;
+    }
+
+    out.heading("Search Pattern");
+    out.field("pattern", bytesToHex(pattern));
+    out.line("  hit                protect      type      module/preview                          actions");
+    out.line("  -----------------  -----------  --------  ----------------------------------------  ------------------------------");
+
+    ULONG64 address = start;
+    ULONG64 endLimit = size >= (std::numeric_limits<ULONG64>::max() - start) ? std::numeric_limits<ULONG64>::max() : start + size;
+    ULONG64 hits = 0;
+    ULONG64 regions = 0;
+    while (address < endLimit && regions < 200000 && hits < maxHits) {
+        MEMORY_BASIC_INFORMATION64 info = {};
+        if (!session.queryVirtual(address, info)) {
+            if (address == 0) {
+                out.error("QueryVirtual failed at " + formatAddress(address) + "\n");
+                return S_OK;
+            }
+            break;
+        }
+
+        const ULONG64 base = info.BaseAddress;
+        const ULONG64 regionSize = info.RegionSize;
+        const ULONG64 regionEnd = regionSize == 0 ? base : base + regionSize;
+        if (info.State == MEM_COMMIT &&
+            !hasGuardOrNoAccess(info.Protect) &&
+            isReadableProtect(info.Protect) &&
+            (!wantExecute || hasExecuteProtect(info.Protect)) &&
+            (!wantWrite || hasWriteProtect(info.Protect)) &&
+            (!onlyImage || info.Type == MEM_IMAGE) &&
+            (!onlyMapped || info.Type == MEM_MAPPED) &&
+            (!onlyPrivate || info.Type == MEM_PRIVATE)) {
+            ULONG64 searchBase = std::max(base, start);
+            ULONG64 searchEnd = std::min(regionEnd, endLimit);
+            while (searchBase < searchEnd && hits < maxHits) {
+                ULONG64 match = 0;
+                const ULONG64 searchSize = searchEnd - searchBase;
+                const HRESULT hr = session.dataSpaces()->SearchVirtual(
+                    searchBase,
+                    searchSize,
+                    const_cast<unsigned char*>(pattern.data()),
+                    static_cast<ULONG>(pattern.size()),
+                    1,
+                    &match);
+                if (FAILED(hr)) {
+                    break;
+                }
+
+                const std::string module = session.moduleNameForOffset(match);
+                const std::string preview = previewString(session, match);
+                std::string note = module;
+                if (!preview.empty()) {
+                    if (!note.empty()) {
+                        note += " ";
+                    }
+                    note += preview;
+                }
+                const std::string plain =
+                    "  " + formatAddress(match) + "  " +
+                    padRight(protectionToString(info.Protect), 11) + "  " +
+                    padRight(typeToString(info.Type), 8) + "  " +
+                    padRight(note, 40) + "  " +
+                    "[dump] [tel] [chunk]";
+                const std::string dml =
+                    "  " + dmlColor(formatAddress(match), "yellow") + "  " +
+                    dmlColor(padRight(protectionToString(info.Protect), 11), "cyan") + "  " +
+                    dmlColor(padRight(typeToString(info.Type), 8), "magenta") + "  " +
+                    dmlColor(padRight(note, 40), "white") + "  " +
+                    dmlCommandLink("dump", "!wef.hexdump " + formatAddress(match) + " L80") + " " +
+                    dmlCommandLink("tel", "!wef.telescope " + formatAddress(match) + " L8") + " " +
+                    dmlCommandLink("chunk", "!wef.chunk " + formatAddress(match));
+                out.dmlLine(plain, dml);
+                ++hits;
+                searchBase = match + 1;
+            }
+        }
+
+        if (regionSize == 0 || regionEnd <= address) {
+            address += 0x1000;
+        } else {
+            address = regionEnd;
+        }
+        ++regions;
+    }
+
+    if (hits == 0) {
+        out.warning("no matches found\n");
+    } else if (hits >= maxHits) {
+        out.warning("search results truncated; increase -max or search.max_hits\n");
     }
     return S_OK;
 }

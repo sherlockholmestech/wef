@@ -80,6 +80,8 @@ telescope @rsp L8
 
 Canonical commands like `!wef.ctx` always work, even without aliases.
 
+WEF uses WinDbg DML by default. In WinDbg, bracketed actions such as `[dump]`, `[chunk]`, `[vis]`, or `[ttd gui]` are clickable command buttons.
+
 ## Commands
 
 ```text
@@ -90,11 +92,27 @@ Canonical commands like `!wef.ctx` always work, even without aliases.
 !wef.ctx
 !wef.telescope [addr] L<count>
 !wef.hexdump <addr> L<size>
-!wef.vmmap
+!wef.search_pattern <text|addr|hex:bytes> [start] [L<size>]
+!wef.vmmap [-all|-free] [-commit|-reserve] [-x|-w|-rwx] [-image|-mapped|-private] [-module <name>] [-contains <addr>] [L<count>]
+!wef.pattern create <length>
+!wef.pattern offset <value|ascii> [L<max-length>]
 !wef.checksec
 !wef.heaps [L<count>|heap-address]       (alias: wef-heap)
+!wef.heaps flags [L<count>|heap-address]
+!wef.heaps segments [L<count>|heap-address]
+!wef.heaps chunks [-busy|-free] [-contains <addr>] [L<count>|heap-address]
+!wef.heaps chunk <addr>
+!wef.heaps find <addr|text> [L<count>|heap-address]
+!wef.heaps validate [L<count>|heap-address]
+!wef.chunk <addr>
 !wef.vis [L<count>|heap-address]
 !vis [L<count>|heap-address]
+!wef.ttd calls <module!function|pattern> [L<count>]
+!wef.ttd exceptions [L<count>]
+!wef.ttd memory <addr> L<size> [-r|-w|-x|-rw|-all] [-take <count>]
+!wef.ttd allocs [addr] [L<size>|L<count>]
+!wef.ttd timeline [L<count>]
+!wef.ttd gui
 !wef.config get [key]
 !wef.config set <key> <value>
 ```
@@ -105,12 +123,54 @@ Aliases installed by `!wef.install`:
 ctx
 telescope
 hexdump
+search-pattern
 vmmap
+pattern
 checksec
+chunk
 wef-heap
 vis
+ttd-events
 wef-config
 ```
+
+### Heap workflow
+
+```text
+!wef.heaps
+!wef.vis
+!wef.chunk <addr>
+!wef.heaps find <addr|text>
+!wef.heaps validate
+```
+
+`!wef.vis` prints a compact heap map, summary counts, and the largest chunks instead of dumping every chunk. Use the DML buttons or `!wef.heaps chunks <heap>` for the full table.
+
+### Memory and exploit helpers
+
+```text
+!wef.search_pattern hex:41414141
+!wef.search_pattern str:password
+!wef.pattern create 512
+!wef.pattern offset Aa3A L8192
+!wef.vmmap -x
+!wef.vmmap -contains @rsp
+```
+
+`search_pattern` scans committed readable memory and supports text, numeric pointer-sized values, and `hex:` byte patterns. `pattern` uses a GEF/metasploit-style cyclic pattern.
+
+### TTD Event Explorer
+
+```text
+!wef.ttd gui
+!wef.ttd calls ntdll!RtlAllocateHeap
+!wef.ttd exceptions
+!wef.ttd memory <addr> L<size> -rw
+!wef.ttd allocs <addr> L<size>
+!wef.ttd timeline
+```
+
+The TTD commands emit `dx -g` grid views for searchable, sortable timelines of calls, exceptions, memory access, and allocation-related APIs. They require a loaded TTD trace.
 
 ## Config
 
@@ -130,10 +190,18 @@ ctx.code.lines = 8
 ctx.regs.show_flags = true
 dereference.depth = 3
 heap.max_count = 80
+heap.chunk.max_search_chunks = 4096
+heap.find.max_chunk_read = 65536
+heap.find.max_hits = 80
 heap.vis.max_chunks = 160
+heap.vis.detail_count = 8
 heap.vis.max_segments = 16
+heap.vis.width = 80
+pattern.max_length = 8192
+search.max_hits = 80
 telescope.count = 20
+ttd.max_events = 200
 hexdump.size = 100
 ```
 
-`output.use_dml` controls colored DML output.
+`output.use_dml` controls colored DML output and clickable command buttons.

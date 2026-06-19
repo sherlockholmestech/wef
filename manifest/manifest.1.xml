@@ -31,10 +31,22 @@
               <Description><![CDATA[Display bytes, hex, and printable ASCII.]]></Description>
             </AliasItem>
           </FunctionAlias>
+          <FunctionAlias Name="wef.search_pattern">
+            <AliasItem>
+              <Syntax><![CDATA[!wef.search_pattern <text|addr|hex:bytes> [start] [L<size>] (alias: search-pattern)]]></Syntax>
+              <Description><![CDATA[Search readable memory regions for text, pointer values, or hex byte patterns.]]></Description>
+            </AliasItem>
+          </FunctionAlias>
           <FunctionAlias Name="wef.vmmap">
             <AliasItem>
-              <Syntax><![CDATA[!wef.vmmap]]></Syntax>
-              <Description><![CDATA[Show user-mode virtual memory regions.]]></Description>
+              <Syntax><![CDATA[!wef.vmmap [-x|-w|-image|-mapped|-private|-contains addr] [L<count>]]]></Syntax>
+              <Description><![CDATA[Show filtered user-mode virtual memory regions.]]></Description>
+            </AliasItem>
+          </FunctionAlias>
+          <FunctionAlias Name="wef.pattern">
+            <AliasItem>
+              <Syntax><![CDATA[!wef.pattern create|offset [args]]]></Syntax>
+              <Description><![CDATA[Create cyclic crash patterns and find offsets.]]></Description>
             </AliasItem>
           </FunctionAlias>
           <FunctionAlias Name="wef.checksec">
@@ -45,8 +57,14 @@
           </FunctionAlias>
           <FunctionAlias Name="wef.heaps">
             <AliasItem>
-              <Syntax><![CDATA[!wef.heaps [L<count>|heap-address] (alias: wef-heap)]]></Syntax>
-              <Description><![CDATA[Show Windows process heaps using PEB and ntdll heap symbols.]]></Description>
+              <Syntax><![CDATA[!wef.heaps [flags|segments|chunks|chunk|find|validate] [args] (alias: wef-heap)]]></Syntax>
+              <Description><![CDATA[Inspect Windows process heaps, segments, chunks, flags, and heap contents.]]></Description>
+            </AliasItem>
+          </FunctionAlias>
+          <FunctionAlias Name="wef.chunk">
+            <AliasItem>
+              <Syntax><![CDATA[!wef.chunk <addr>]]></Syntax>
+              <Description><![CDATA[Inspect the backend heap chunk containing an address.]]></Description>
             </AliasItem>
           </FunctionAlias>
           <FunctionAlias Name="vis">
@@ -59,6 +77,12 @@
             <AliasItem>
               <Syntax><![CDATA[!wef.vis [L<count>|heap-address]]]></Syntax>
               <Description><![CDATA[Visualize Windows process heaps.]]></Description>
+            </AliasItem>
+          </FunctionAlias>
+          <FunctionAlias Name="wef.ttd">
+            <AliasItem>
+              <Syntax><![CDATA[!wef.ttd calls|exceptions|memory|allocs [addr]|timeline|gui|grid [args]]]></Syntax>
+              <Description><![CDATA[Explore searchable TTD timelines for calls, exceptions, memory access, and allocations.]]></Description>
             </AliasItem>
           </FunctionAlias>
         </FunctionAliases>

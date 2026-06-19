@@ -6,7 +6,9 @@
 #include "heap.hpp"
 #include "memory.hpp"
 #include "modules.hpp"
+#include "pattern.hpp"
 #include "pe_security.hpp"
+#include "ttd.hpp"
 
 #include <algorithm>
 #include <cctype>
@@ -28,15 +30,29 @@ HRESULT runHelp(DbgSession&, const Output& out, const std::vector<std::string>&)
     out.line("  !wef.ctx [-full] [-regs] [-stack L<count>] [-code L<count>]");
     out.line("  !wef.telescope [<addr>] [L<count>]");
     out.line("  !wef.hexdump <addr> [L<size>] [-force]");
-    out.line("  !wef.vmmap");
+    out.line("  !wef.search_pattern <text|addr|hex:bytes> [start] [L<size>]");
+    out.line("  !wef.vmmap [-x|-w|-image|-private|-contains <addr>] [L<count>]");
+    out.line("  !wef.pattern create|offset ...");
     out.line("  !wef.checksec [module]");
     out.line("  !wef.heaps [L<count>|heap-address]    (alias: wef-heap)");
+    out.line("  !wef.heaps flags|segments|chunks|chunk|find|validate ...");
+    out.line("  !wef.chunk <addr>");
     out.line("  !wef.vis [L<count>|heap-address]");
     out.line("  !vis [L<count>|heap-address]");
+    out.line("  !wef.ttd calls|exceptions|memory|allocs|timeline|gui ...");
     out.line("  !wef.config get [key]");
     out.line("  !wef.config set <key> <value>");
     out.blank();
-    out.line("Run !wef.install to add opt-in bare aliases: ctx, telescope, hexdump, vmmap, checksec, vis, wef-config.");
+    out.dmlLine(
+        "Quick actions: [ctx] [vmmap] [heaps] [vis] [ttd gui] [config]",
+        "Quick actions: " +
+            dmlCommandLink("ctx", "!wef.ctx") + " " +
+            dmlCommandLink("vmmap", "!wef.vmmap") + " " +
+            dmlCommandLink("heaps", "!wef.heaps") + " " +
+            dmlCommandLink("vis", "!wef.vis") + " " +
+            dmlCommandLink("ttd gui", "!wef.ttd gui") + " " +
+            dmlCommandLink("config", "!wef.config get"));
+    out.line("Run !wef.install to add opt-in bare aliases: ctx, telescope, hexdump, search-pattern, vmmap, pattern, checksec, chunk, vis, ttd-events, wef-config.");
     return S_OK;
 }
 
@@ -163,6 +179,10 @@ HRESULT Hexdump(IDebugClient* client, PCSTR args) {
     return executeCommand(client, args, runHexdump);
 }
 
+HRESULT SearchPattern(IDebugClient* client, PCSTR args) {
+    return executeCommand(client, args, runSearchPattern);
+}
+
 HRESULT Vmmap(IDebugClient* client, PCSTR args) {
     return executeCommand(client, args, runVmmap);
 }
@@ -171,12 +191,20 @@ HRESULT Checksec(IDebugClient* client, PCSTR args) {
     return executeCommand(client, args, runChecksec);
 }
 
+HRESULT Pattern(IDebugClient* client, PCSTR args) {
+    return executeCommand(client, args, runPattern);
+}
+
 HRESULT Heaps(IDebugClient* client, PCSTR args) {
     return executeCommand(client, args, runHeap);
 }
 
 HRESULT Vis(IDebugClient* client, PCSTR args) {
     return executeCommand(client, args, runHeapVis);
+}
+
+HRESULT Ttd(IDebugClient* client, PCSTR args) {
+    return executeCommand(client, args, runTtd);
 }
 
 HRESULT Config(IDebugClient* client, PCSTR args) {
