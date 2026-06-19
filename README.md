@@ -4,6 +4,8 @@ WEF is a native C++ WinDbg extension DLL that adds GEF-like debugger ergonomics 
 
 **Note: Currently only support amd64/x86-64 based systems and binaries!**
 
+![screenshot of wef in action](screenshots/wef.png)
+
 ## Build
 
 Requirements:
